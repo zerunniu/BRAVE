@@ -1,0 +1,26 @@
+# Python bytecode and local environments
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+
+# Local settings and credentials
+.env
+.env.*
+.vscode/
+.idea/
+.DS_Store
+.ipynb_checkpoints/
+
+# Downloaded datasets and third-party repositories; keep setup instructions
+/data/*
+!/data/README.md
+crowdkit_data/
+
+# Generated run outputs
+results/
+logs/
+tmp/
+.pytest_cache/
+*.log
