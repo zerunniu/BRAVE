@@ -1,13 +1,11 @@
 """
-BRAVE block (local computation).
+BRAVE block-local evidence construction and worker-profile refinement.
 
-BRAVE = Blockwise Reliability-Aware Variational EM
+BRAVE = Block-wise Structural Regularization via Controlled Evidence Feedback
 
-This class implements the block-local computation used by BRAVE.
-
-Privacy / modularity principle:
-  - worker-level latent variables (e.g., worker-to-component responsibilities) remain local
-  - the block uploads only additive contributions needed for global aggregation
+Worker-specific mixture weights are maintained within each worker block.
+The block computes additive evidence and statistical contributions for the
+global posterior and shared parameter updates.
 """
 
 from __future__ import annotations
@@ -16,7 +14,7 @@ from typing import Optional
 
 import numpy as np
 
-from .server import BRAVEUpdate
+from .global_update import BRAVEUpdate
 
 
 class BRAVEBlock:
@@ -106,15 +104,15 @@ class BRAVEBlock:
         exp_logits = np.exp(random_logits - random_logits.max(axis=1, keepdims=True))
         self.worker_component_probs = exp_logits / (exp_logits.sum(axis=1, keepdims=True) + 1e-10)
 
-    def local_e_step(
+    def refine_worker_profiles(
         self,
         global_instance_probs: np.ndarray,
         global_component_reliability: np.ndarray,
     ) -> None:
         """
-        Local E-step for BRAVE:
+        Refine worker profiles using the synchronized global posterior:
           - update worker confusion matrices (for diagnostics / quality proxy)
-          - update worker-to-component responsibilities (kept local)
+          - update worker-specific mixture weights (kept local)
         """
         eps = 1e-10
         I, J, C, K = self.n_instances, self.n_workers, self.n_classes, self.n_components
@@ -142,7 +140,7 @@ class BRAVEBlock:
         exp_probs = np.exp(worker_log_probs - max_log)
         self.worker_component_probs = exp_probs / (exp_probs.sum(axis=1, keepdims=True) + eps)
 
-    def compute_update(
+    def compute_block_contributions(
         self,
         global_class_priors: np.ndarray,
         global_component_weights: np.ndarray,
@@ -150,7 +148,7 @@ class BRAVEBlock:
         include_diagnostics: bool = False,
     ) -> BRAVEUpdate:
         """
-        Compute additive contributions uploaded to the coordinator.
+        Construct block-local evidence and shared-statistic contributions.
 
         instance_log_probs:
           log p(y_i=c | block labels) ∝ log π_c + Σ_j valid_ij * log( Σ_k w_jk * R_k[c, l_ij] )

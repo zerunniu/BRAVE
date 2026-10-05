@@ -1,12 +1,11 @@
 """
-BRAVE coordinator (server-side aggregation).
+BRAVE global posterior synchronization and parameter updates.
 
-BRAVE = Blockwise Reliability-Aware Variational EM
+BRAVE = Block-wise Structural Regularization via Controlled Evidence Feedback
 
-This module implements the *blockwise aggregation* step:
-  - Each block uploads additive contributions (log-likelihood terms, expected counts).
-  - The coordinator sums contributions to obtain the global posterior over instance labels
-    and updates global mixture/reliability parameters.
+Blocks provide local log-evidence and sufficient statistics. This module
+synchronizes the global label posterior and updates shared reliability
+components, component weights, and class priors.
 """
 
 from __future__ import annotations
@@ -19,7 +18,7 @@ import numpy as np
 
 @dataclass
 class BRAVEUpdate:
-    """Update uploaded by a BRAVE block."""
+    """Block-local evidence and statistics used by BRAVE global updates."""
 
     block_id: str
     instance_log_probs: np.ndarray  # (I, C): log p(labels_block | y) + log p(y) as used by the block
@@ -38,11 +37,11 @@ class BRAVEUpdate:
     local_instance_probs: Optional[np.ndarray] = None  # (I, C)
 
 
-class BRAVEServer:
+class BRAVEGlobalUpdater:
     """
-    BRAVE coordinator.
+    BRAVE global posterior and parameter updater.
 
-    Maintains global parameters and aggregates block updates.
+    Maintains shared parameters and aggregates block contributions.
     """
 
     def __init__(
@@ -86,10 +85,10 @@ class BRAVEServer:
         if block_id not in self.block_ids:
             self.block_ids.append(block_id)
             if self.verbose:
-                print(f"BRAVE Coordinator: registered block '{block_id}'")
+                print(f"BRAVE Global Update: registered block '{block_id}'")
 
     def get_global_params(self) -> Dict[str, np.ndarray]:
-        """Parameters broadcast to blocks."""
+        """Shared parameters supplied to blocks."""
         return {
             "class_priors": self.global_class_priors.copy(),
             "instance_probs": self.global_instance_probs.copy(),
@@ -182,7 +181,7 @@ class BRAVEServer:
         if self.verbose:
             info = self.round_history[-1]
             print(
-                f"BRAVE Coordinator: aggregated {n_blocks} blocks, "
+                f"BRAVE Global Update: aggregated {n_blocks} blocks, "
                 f"total_annotations={info['total_annotations']:.0f}, avg_entropy={info['avg_entropy']:.4f}"
             )
 

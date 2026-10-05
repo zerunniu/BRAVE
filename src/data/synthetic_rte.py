@@ -22,7 +22,7 @@ from .base_loader import BaseDataLoader
 
 
 @dataclass(frozen=True)
-class RTECrowdConfig:
+class SyntheticRTEConfig:
     n_workers: int = 50
     avg_labels_per_instance: int = 5
     # Worker accuracy distribution (Beta): mean = a/(a+b)
@@ -35,7 +35,7 @@ class RTECrowdConfig:
     seed: int = 0
 
 
-class RTECrowdLoader(BaseDataLoader):
+class SyntheticRTELoader(BaseDataLoader):
     """
     Synthetic crowd-annotated RTE loader.
 
@@ -67,12 +67,12 @@ class RTECrowdLoader(BaseDataLoader):
     def prepare_data(
         self,
         max_instances: Optional[int] = 5000,
-        config: Optional[RTECrowdConfig] = None,
+        config: Optional[SyntheticRTEConfig] = None,
     ) -> Tuple[np.ndarray, np.ndarray, int, Dict[str, Any]]:
         if self.dataset is None:
             raise ValueError("Call load_dataset() first.")
 
-        cfg = config or RTECrowdConfig()
+        cfg = config or SyntheticRTEConfig()
         rng = np.random.default_rng(cfg.seed)
 
         # Extract gold labels; filter out unlabeled (-1) if any.
@@ -135,14 +135,14 @@ class RTECrowdLoader(BaseDataLoader):
         return labels, truth, self.n_classes, metadata
 
 
-def quick_load_rte_crowd(
+def quick_load_synthetic_rte(
     split: str = "train",
     max_instances: Optional[int] = 5000,
-    config: Optional[RTECrowdConfig] = None,
+    config: Optional[SyntheticRTEConfig] = None,
     cache_dir: Optional[str] = None,
     verbose: bool = True,
 ) -> Tuple[np.ndarray, np.ndarray, int, Dict[str, Any]]:
-    loader = RTECrowdLoader(cache_dir=cache_dir, verbose=verbose)
+    loader = SyntheticRTELoader(cache_dir=cache_dir, verbose=verbose)
     loader.load_dataset(split=split)
     return loader.prepare_data(max_instances=max_instances, config=config)
 

@@ -75,8 +75,8 @@ def make_parser() -> argparse.ArgumentParser:
     model = parser.add_argument_group("BRAVE parameters")
     model.add_argument("--n-components", type=positive_int, help="mixture components K; omitted: dataset default")
     model.add_argument("--blocks", type=positive_int, help="worker blocks B; omitted: dataset default")
-    model.add_argument("--max-rounds", type=positive_int, help="maximum EM rounds; omitted: dataset default")
-    model.add_argument("--local-epochs", type=positive_int, help="local E-step repeats; omitted: dataset default")
+    model.add_argument("--max-rounds", type=positive_int, help="maximum inference rounds; omitted: dataset default")
+    model.add_argument("--local-epochs", type=positive_int, help="worker-profile refinement steps; omitted: dataset default")
     model.add_argument("--alpha", type=nonnegative_float, default=0.0, help="class-prior smoothing")
     model.add_argument("--beta", type=nonnegative_float, default=0.0, help="reliability smoothing")
     model.add_argument("--tol", type=nonnegative_float, default=1e-5, help="posterior-shift stopping threshold")
@@ -199,7 +199,7 @@ def main(argv=None) -> int:
             parser.error("--output-dir must be a new or empty directory; choose another path")
 
     import numpy as np
-    from src.brave import BRAVE, simulate_federated_scenario
+    from src.brave import BRAVE, partition_annotations
     from src.evaluation.evaluator import Evaluator
 
     labels, truth, n_classes, metadata = load_data(args)
@@ -217,7 +217,7 @@ def main(argv=None) -> int:
 
     # Reset immediately before initializing blocks, matching the experiment runners.
     np.random.seed(args.seed)
-    block_labels, block_ids = simulate_federated_scenario(labels, n_clients=settings["blocks"])
+    block_labels, block_ids = partition_annotations(labels, n_blocks=settings["blocks"])
     model = BRAVE(
         n_classes=n_classes,
         n_components=settings["n_components"],

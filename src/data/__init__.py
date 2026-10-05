@@ -15,7 +15,7 @@ from .multipref import MultiPrefLoader, quick_load_multipref
 from .webcrowd25k import WebCrowd25KLoader, quick_load_webcrowd25k
 from .bluebirds import BluebirdsLoader, quick_load_bluebirds
 from .toloka_relevance import TolokaRelevanceLoader, quick_load_toloka_relevance
-from .rte_crowd import RTECrowdLoader, RTECrowdConfig, quick_load_rte_crowd
+from .synthetic_rte import SyntheticRTELoader, SyntheticRTEConfig, quick_load_synthetic_rte
 from .rte_crowdtruth import CrowdTruthRTELoader, quick_load_rte_crowdtruth
 from .netease_crowd import NetEaseCrowdLoader, NetEaseCrowdConfig, quick_load_netease_crowd
 from .cifar10h import CIFAR10HLoader, quick_load_cifar10h
@@ -37,9 +37,9 @@ __all__ = [
     "quick_load_bluebirds",
     "TolokaRelevanceLoader",
     "quick_load_toloka_relevance",
-    "RTECrowdLoader",
-    "RTECrowdConfig",
-    "quick_load_rte_crowd",
+    "SyntheticRTELoader",
+    "SyntheticRTEConfig",
+    "quick_load_synthetic_rte",
     "CrowdTruthRTELoader",
     "quick_load_rte_crowdtruth",
     "NetEaseCrowdLoader",

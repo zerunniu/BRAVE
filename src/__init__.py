@@ -1,11 +1,11 @@
 """BRAVE submission package."""
 
-from .brave import BRAVE, BRAVEBlock, BRAVEServer, BRAVEUpdate, simulate_federated_scenario
+from .brave import BRAVE, BRAVEBlock, BRAVEGlobalUpdater, BRAVEUpdate, partition_annotations
 
 __all__ = [
     "BRAVE",
     "BRAVEBlock",
-    "BRAVEServer",
+    "BRAVEGlobalUpdater",
     "BRAVEUpdate",
-    "simulate_federated_scenario",
+    "partition_annotations",
 ]

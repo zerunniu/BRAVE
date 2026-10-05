@@ -1,5 +1,5 @@
 """
-BRAVE: Blockwise Reliability-Aware Variational EM
+BRAVE: Block-wise Structural Regularization via Controlled Evidence Feedback
 
 Reference implementation for the BRAVE blockwise inference procedure.
 
@@ -17,18 +17,18 @@ from typing import Dict, List, Optional
 import numpy as np
 
 from .block import BRAVEBlock
-from .server import BRAVEServer, BRAVEUpdate
+from .global_update import BRAVEGlobalUpdater, BRAVEUpdate
 
 
 class BRAVE:
     """
-    BRAVE = Blockwise Reliability-Aware Variational EM
+    BRAVE = Block-wise Structural Regularization via Controlled Evidence Feedback
 
     Parameters:
       n_classes: number of label classes
       n_components: mixture components used for reliability modeling
-      max_rounds: maximum blockwise EM rounds
-      local_epochs: number of local E-step repeats per round (after round 1)
+      max_rounds: maximum block-wise inference rounds
+      local_epochs: number of worker-profile refinement steps per round (after round 1)
       alpha: optional class-prior smoothing strength
       beta: optional reliability smoothing strength
       tol: convergence threshold (mean absolute change in instance probabilities)
@@ -65,7 +65,7 @@ class BRAVE:
         self.disable_early_stopping = bool(disable_early_stopping)
         self.verbose = verbose
 
-        self.server: Optional[BRAVEServer] = None
+        self.global_updater: Optional[BRAVEGlobalUpdater] = None
         self.blocks: List[BRAVEBlock] = []
 
         self.is_fitted = False
@@ -91,10 +91,6 @@ class BRAVE:
         self.blocks.append(block)
         return block
 
-    # Compatibility alias for scripts that use client-style terminology.
-    def add_client(self, client_id: str, labels: np.ndarray, dp_epsilon: Optional[float] = None) -> BRAVEBlock:
-        return self.add_block(block_id=client_id, labels=labels, dp_epsilon=dp_epsilon)
-
     # -------------------- training --------------------
     def fit(
         self,
@@ -117,7 +113,7 @@ class BRAVE:
         if n_instances is None:
             n_instances = self.blocks[0].n_instances
 
-        self.server = BRAVEServer(
+        self.global_updater = BRAVEGlobalUpdater(
             n_instances=n_instances,
             n_classes=self.n_classes,
             n_components=self.n_components,
@@ -128,11 +124,11 @@ class BRAVE:
         )
 
         for b in self.blocks:
-            self.server.register_block(b.block_id)
+            self.global_updater.register_block(b.block_id)
 
         if self.verbose:
             print("\n" + "=" * 60)
-            print("BRAVE Training (Blockwise Reliability-Aware Variational EM)")
+            print("BRAVE Training (Block-wise Structural Regularization via Controlled Evidence Feedback)")
             print(f"  Blocks:     {len(self.blocks)}")
             print(f"  Instances:  {n_instances}")
             print(f"  Classes:    {self.n_classes}")
@@ -153,22 +149,22 @@ class BRAVE:
             if self.verbose:
                 print(f"\n--- Round {round_idx + 1}/{self.max_rounds} ---")
 
-            global_params = self.server.get_global_params()
+            global_params = self.global_updater.get_global_params()
             q_before = global_params["instance_probs"].copy()
             reliability_before = global_params["component_reliability"].copy()
             priors_before = global_params["class_priors"].copy()
 
             updates: List[BRAVEUpdate] = []
             for block in self.blocks:
-                # local E-step (skip at round 1, consistent with existing repo logic)
+                # Worker-profile refinement (skip at round 1, as before).
                 if round_idx > 0:
                     for _ in range(self.local_epochs):
-                        block.local_e_step(
+                        block.refine_worker_profiles(
                             global_instance_probs=global_params["instance_probs"],
                             global_component_reliability=global_params["component_reliability"],
                         )
 
-                upd = block.compute_update(
+                upd = block.compute_block_contributions(
                     global_class_priors=global_params["class_priors"],
                     global_component_weights=global_params["component_weights"],
                     global_component_reliability=global_params["component_reliability"],
@@ -179,11 +175,11 @@ class BRAVE:
                 if self.verbose:
                     print(f"  Block '{block.block_id}': done")
 
-            self.server.aggregate_updates(updates)
+            self.global_updater.aggregate_updates(updates)
 
-            current_probs = self.server.global_instance_probs
-            reliability_after = self.server.global_component_reliability.copy()
-            priors_after = self.server.global_class_priors.copy()
+            current_probs = self.global_updater.global_instance_probs
+            reliability_after = self.global_updater.global_component_reliability.copy()
+            priors_after = self.global_updater.global_class_priors.copy()
 
             # Theory-facing posterior shift: item-wise L1 averaged over items.
             delta_q = float(np.abs(current_probs - q_before).sum(axis=1).mean())
@@ -313,21 +309,21 @@ class BRAVE:
 
     # -------------------- inference --------------------
     def predict(self) -> np.ndarray:
-        if not self.is_fitted or self.server is None:
+        if not self.is_fitted or self.global_updater is None:
             raise ValueError("Model not trained.")
-        return self.server.get_aggregated_labels()
+        return self.global_updater.get_aggregated_labels()
 
     def predict_proba(self) -> np.ndarray:
-        if not self.is_fitted or self.server is None:
+        if not self.is_fitted or self.global_updater is None:
             raise ValueError("Model not trained.")
-        return self.server.get_label_probabilities()
+        return self.global_updater.get_label_probabilities()
 
     @property
     def instance_label_probs(self) -> np.ndarray:
         """Compatibility property for the evaluator."""
-        if self.server is None:
+        if self.global_updater is None:
             return None
-        return self.server.global_instance_probs
+        return self.global_updater.global_instance_probs
 
     # -------------------- diagnostics --------------------
     def get_block_worker_quality(self, block_id: str) -> np.ndarray:
@@ -340,17 +336,17 @@ class BRAVE:
         return {b.block_id: b.get_worker_quality() for b in self.blocks}
 
     def get_component_info(self) -> Dict:
-        if not self.is_fitted or self.server is None:
+        if not self.is_fitted or self.global_updater is None:
             raise ValueError("Model not trained.")
 
         component_quality = []
         for k in range(self.n_components):
-            diag_mean = np.diag(self.server.global_component_reliability[k]).mean()
+            diag_mean = np.diag(self.global_updater.global_component_reliability[k]).mean()
             component_quality.append(diag_mean)
 
         return {
-            "weights": self.server.global_component_weights,
+            "weights": self.global_updater.global_component_weights,
             "quality": np.array(component_quality),
-            "reliability": self.server.global_component_reliability,
+            "reliability": self.global_updater.global_component_reliability,
         }
 

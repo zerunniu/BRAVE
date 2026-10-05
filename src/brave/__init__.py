@@ -1,5 +1,5 @@
 """
-BRAVE: Blockwise Reliability-Aware Variational EM
+BRAVE: Block-wise Structural Regularization via Controlled Evidence Feedback
 
 This package exposes BRAVE components for blockwise label aggregation.
 
@@ -8,18 +8,18 @@ Implementation entry point:
 """
 
 from .brave import BRAVE
-from .server import BRAVEServer, BRAVEUpdate
+from .global_update import BRAVEGlobalUpdater, BRAVEUpdate
 from .block import BRAVEBlock
 from .diagnostics import WARNING_TEXT, compute_feedback_gap
-from .partition import simulate_federated_scenario
+from .partition import partition_annotations
 
 __all__ = [
     "BRAVE",
-    "BRAVEServer",
+    "BRAVEGlobalUpdater",
     "BRAVEUpdate",
     "BRAVEBlock",
     "WARNING_TEXT",
     "compute_feedback_gap",
-    "simulate_federated_scenario",
+    "partition_annotations",
 ]
 
