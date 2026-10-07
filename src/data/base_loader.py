@@ -1,6 +1,5 @@
 """
-Base data loader.
-Abstract base class for all dataset loaders.
+Base interface for crowdsourcing dataset loaders.
 """
 
 from abc import ABC, abstractmethod
@@ -88,6 +87,5 @@ class BaseDataLoader(ABC):
             'avg_annotations_per_instance': avg_annotations,
             'label_distribution': label_counts / n_instances,
         }
-
 
 

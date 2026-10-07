@@ -4,9 +4,8 @@ CrowdTruth Open Domain Relation Extraction loader.
 Repository:
   https://github.com/CrowdTruth/Open-Domain-Relation-Extraction
 
-This dataset is originally multi-label at worker level (`Answer.Q1` may contain
-multiple relations split by '|'). To support this repo's single-label
-aggregators, we map each worker response to the first selected relation token.
+Worker responses in `Answer.Q1` contain relation tokens separated by '|'.
+The loader uses the first selected token as the worker's class label.
 """
 
 from __future__ import annotations

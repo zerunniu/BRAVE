@@ -4,6 +4,10 @@ Official implementation of our paper accepted at **Transactions on Machine Learn
 
 BRAVE aims to make crowdsourced labels more reliable when annotations are limited and noisy, with attention to both label quality and confidence.
 
+BRAVE partitions workers into disjoint blocks of contiguous annotation-matrix
+columns, preserving column order and letting the final block absorb the remainder.
+The Python helper is `partition_annotations(labels, n_blocks=...)`.
+
 ## Quick start
 
 Run these commands from the repository root:

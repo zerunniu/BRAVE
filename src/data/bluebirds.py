@@ -2,7 +2,7 @@
 Bluebirds dataset loader (Welinder et al. / CUBAM demo).
 
 This dataset is commonly used for crowdsourcing label aggregation benchmarks.
-We use the official CUBAM demo YAML files as the data source:
+Data source: CUBAM demo YAML files.
   - labels.yaml: worker -> {item_id -> bool}
   - gt.yaml:     item_id -> bool   (gold truth; independent of crowd votes)
 
@@ -43,8 +43,8 @@ class BluebirdsLoader(BaseDataLoader):
     Bluebirds dataset loader.
 
     Notes:
-    - Binary task: bluebird present (1) vs not present (0)
-    - `truth` comes from `gt.yaml` (gold), not derived from worker labels.
+    - Binary task: bluebird present (1) or absent (0).
+    - `truth` contains the gold labels from `gt.yaml`.
     """
 
     def __init__(
@@ -129,7 +129,7 @@ class BluebirdsLoader(BaseDataLoader):
             j = worker_id_to_idx[wid]
             for iid, is_pos in ann.items():
                 if iid not in item_id_to_idx:
-                    # Should not happen, but keep robust if labels contain extra ids
+                    # Skip annotation IDs outside the selected item set.
                     continue
                 i = item_id_to_idx[iid]
                 labels[i, j] = 1 if is_pos else 0
@@ -165,4 +165,3 @@ def quick_load_bluebirds(
     loader = BluebirdsLoader(cache_dir=cache_dir, verbose=verbose)
     loader.load_dataset()
     return loader.prepare_data()
-

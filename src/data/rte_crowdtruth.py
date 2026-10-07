@@ -11,7 +11,7 @@ Each row is an annotation:
   - `gold` (expert label: 0/1)
   - plus `text` and `hypothesis`
 
-We convert it to the repo's dense format:
+Output:
   labels: (I, J) with -1 for missing
   truth:  (I,) expert gold label
   n_classes: 2
@@ -82,7 +82,7 @@ class CrowdTruthRTELoader(BaseDataLoader):
         self._download_if_needed(self.source.standardized_csv_url, csv_path)
 
         df = pd.read_csv(csv_path)
-        # Normalize column names we use
+        # Normalize annotation column names.
         required = {"orig_id", "!amt_worker_ids", "response", "gold", "text", "hypothesis"}
         missing = required - set(df.columns)
         if missing:
@@ -133,7 +133,7 @@ class CrowdTruthRTELoader(BaseDataLoader):
         J = len(worker_ids)
         labels = np.full((I, J), -1, dtype=int)
 
-        # Gold per unit (should be constant); keep first and warn if inconsistent.
+        # Use the first gold label per unit and report conflicting entries.
         gold_by_unit = df.groupby("orig_id")["gold"].agg(["nunique", "first"])
         inconsistent = gold_by_unit[gold_by_unit["nunique"] > 1]
         if len(inconsistent) > 0 and self.verbose:
@@ -192,4 +192,3 @@ def quick_load_rte_crowdtruth(
     loader = CrowdTruthRTELoader(cache_dir=cache_dir, verbose=verbose)
     loader.load_dataset()
     return loader.prepare_data(max_instances=max_instances, min_labels_per_instance=min_labels_per_instance)
-

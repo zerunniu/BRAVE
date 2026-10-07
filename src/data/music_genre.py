@@ -7,8 +7,7 @@ Source/provenance:
   - Benchmark family used in Filipe Rodrigues' crowdsourcing work and mirrored by
     peerannot's `datasets/music/music.py`.
 
-This loader only relies on the crowd annotation CSVs and gold label CSVs. The
-associated image/audio assets are not required for label aggregation benchmarks.
+The loader reads the crowd annotation and gold-label CSV files.
 """
 
 from __future__ import annotations
@@ -54,7 +53,7 @@ class MusicGenreLoader(BaseDataLoader):
     """
     Loader for the MTurk music genre classification benchmark.
 
-    We evaluate aggregation on the 700 training songs that have both worker
+    Aggregation uses the 700 training songs that have both worker
     annotations and independent gold labels.
     """
 

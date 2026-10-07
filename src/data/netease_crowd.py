@@ -5,7 +5,7 @@ This dataset is available via Crowd-Kit's dataset loaders:
   crowdkit.datasets.load_dataset('netease_crowd')
 
 The raw data is a sparse table of (task, worker, label) plus a ground-truth label per task.
-We convert it into this repo's dense format (I,J) with controlled subsampling.
+The loader converts the table into a dense annotation matrix (I,J) with subsampling.
 """
 
 from __future__ import annotations
@@ -39,7 +39,7 @@ class NetEaseCrowdLoader(BaseDataLoader):
     def load_dataset(self) -> None:
         from crowdkit.datasets import load_dataset as ck_load_dataset
 
-        # Crowd-Kit will download/cache internally; `data_dir` allows redirecting cache
+        # Crowd-Kit manages the dataset download and cache.
         df, gt = ck_load_dataset("netease_crowd", data_dir=self.cache_dir)
         self._df = df.copy()
         self._gt = gt.copy()
@@ -167,4 +167,3 @@ def quick_load_netease_crowd(
     loader = NetEaseCrowdLoader(cache_dir=cache_dir, verbose=verbose)
     loader.load_dataset()
     return loader.prepare_data(config=config, **kwargs)
-

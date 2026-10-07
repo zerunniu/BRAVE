@@ -10,7 +10,6 @@ Implementation entry point:
 from .brave import BRAVE
 from .global_update import BRAVEGlobalUpdater, BRAVEUpdate
 from .block import BRAVEBlock
-from .diagnostics import WARNING_TEXT, compute_feedback_gap
 from .partition import partition_annotations
 
 __all__ = [
@@ -18,8 +17,5 @@ __all__ = [
     "BRAVEGlobalUpdater",
     "BRAVEUpdate",
     "BRAVEBlock",
-    "WARNING_TEXT",
-    "compute_feedback_gap",
     "partition_annotations",
 ]
-

@@ -1,13 +1,13 @@
 """
 Toloka / Crowd-Kit relevance datasets loader.
 
-We support the datasets provided by Toloka Crowd-Kit (Ustalov et al., 2024) via public ZIP URLs:
+Data sources: Toloka Crowd-Kit (Ustalov et al., 2024) public ZIP archives.
   - relevance-2: binary relevance (0/1)
   - relevance-5: 1..5 relevance scale
 
-These datasets are large and sparse (task, worker, label tuples). Our algorithms in this repo
-expect a dense matrix (n_instances, n_workers) with -1 for missing labels, so we provide
-controlled subsampling to keep memory/runtime reasonable.
+The loader converts sparse (task, worker, label) tuples into a dense matrix
+(n_instances, n_workers), using -1 for missing annotations. Parameters control
+the sampled item count, worker count and annotation-count filter.
 """
 
 from __future__ import annotations
@@ -53,10 +53,10 @@ class TolokaRelevanceLoader(BaseDataLoader):
     """
     Loader for Toloka/Crowd-Kit Relevance datasets.
 
-    Parameters focus on converting sparse tuples into a manageable dense matrix:
+    Sampling parameters:
       - max_instances: number of tasks (items) to keep
       - max_workers: number of workers to keep
-      - min_labels_per_instance: filter tasks with too few annotations (after worker filtering)
+      - min_labels_per_instance: minimum annotation-row count after worker filtering
     """
 
     def __init__(
@@ -124,7 +124,7 @@ class TolokaRelevanceLoader(BaseDataLoader):
             expected_md5 = self._download_text(self.source.md5_url).split()[0]
             self._verify_md5(zip_path, expected_md5)
         except Exception as e:
-            # Integrity check is nice-to-have; keep user unblocked if md5 endpoint fails transiently.
+            # Report checksum errors when verbose output is enabled.
             if self.verbose:
                 print(f"Warning: checksum verification skipped/failed: {e}")
 
@@ -212,7 +212,7 @@ class TolokaRelevanceLoader(BaseDataLoader):
             gt = gt_mapped.map(mapping).astype(int)
             self.n_classes = len(mapping)
 
-        # Optionally cap workers: keep most active workers for stability
+        # Cap workers by annotation count.
         if max_workers is not None and max_workers > 0:
             worker_counts = df["worker"].value_counts()
             keep_workers = worker_counts.head(max_workers).index
@@ -257,7 +257,7 @@ class TolokaRelevanceLoader(BaseDataLoader):
             truth[task_id_to_idx[t]] = int(y_true)
 
         # Fill dense labels
-        # If multiple annotations per (task, worker), keep the last one (rare).
+        # Keep the last annotation for each (task, worker) pair.
         for row in df.itertuples(index=False):
             i = task_id_to_idx.get(row.task)
             j = worker_id_to_idx.get(row.worker)
@@ -305,4 +305,3 @@ def quick_load_toloka_relevance(
     loader = TolokaRelevanceLoader(variant=variant, cache_dir=cache_dir, verbose=verbose)
     loader.load_dataset()
     return loader.prepare_data(**prepare_kwargs)
-

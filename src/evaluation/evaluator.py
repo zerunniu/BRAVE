@@ -75,10 +75,8 @@ class Evaluator:
         if len(predictions) == 0:
             raise ValueError("No valid instances available for evaluation")
         
-        # Use a stable class count for probability metrics.
-        # Some datasets may have non-contiguous class ids in the evaluated subset
-        # (e.g. labels {0,1,3,5,...}), where len(unique) is smaller than max(label)+1.
-        # In that case, log_loss(labels=range(n_classes)) would fail.
+        # Use the probability matrix width as the class count, or infer it from
+        # the largest reference label when probabilities are absent.
         if probabilities is not None and hasattr(probabilities, "shape") and len(probabilities.shape) == 2:
             n_classes = int(probabilities.shape[1])
         else:
@@ -219,7 +217,7 @@ class Evaluator:
         Compute Expected Calibration Error (ECE).
         
         ECE measures the gap between predicted confidence and observed accuracy.
-        ECE = 0 indicates perfect calibration.
+        Confidence and accuracy are compared within equal-width confidence bins.
         
         Args:
             probabilities: Predicted probabilities.

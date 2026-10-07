@@ -5,8 +5,8 @@ Source package/provenance:
   - Crowd-Kit public dataset mirror: nist-trec-relevance
   - Original benchmark: NIST TREC Relevance Feedback Track 2010
 
-We keep the full crowd matrix and expose an evaluation mask for the subset with
-independent NIST gold labels.
+The loader returns the crowd annotation matrix and an evaluation mask marking
+tasks with independent NIST gold labels.
 """
 
 from __future__ import annotations
@@ -39,9 +39,9 @@ class NistTrecRelevanceLoader(BaseDataLoader):
     """
     Load the NIST TREC relevance benchmark into the repo-standard dense matrix.
 
-    Crowd labels and gold labels both use the 4-grade relevance scale encoded as
-    integer class ids in {0,1,2,3}. Gold labels are only available for a subset
-    of tasks, so `prepare_data()` returns an `eval_mask` in metadata.
+    Crowd labels and gold labels use the 4-grade relevance scale encoded as
+    integer class ids in {0,1,2,3}. The `eval_mask` returned by `prepare_data()`
+    marks tasks with available gold labels.
     """
 
     def __init__(

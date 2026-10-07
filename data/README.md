@@ -1,17 +1,16 @@
 # Dataset Setup
 
-Raw benchmark data and third-party dataset repositories are not distributed with
-this code. Downloaded files under `data/` are ignored by Git; only this README is
-tracked. Run all commands below from the BRAVE repository root.
+This directory contains dataset setup instructions. Loaders store downloaded
+data in local caches, and Git ignores cached files under `data/`.
+Run all commands below from the BRAVE repository root.
 
-Datasets retain their upstream licenses, terms of use, and citation requirements.
-Please consult the linked sources before using or redistributing them. The MIT
-license for BRAVE does not apply to third-party data. No ClueWeb document corpus
-is needed for the label-aggregation runs.
+Use each dataset under its source license, terms of use, and citation
+requirements. Label aggregation uses the crowd annotation and reference-label
+files listed below.
 
 ## Synthetic Data
 
-Synthetic data are generated locally and require no downloads:
+Generate synthetic data locally:
 
 ```bash
 python main.py --dataset synthetic --seed 0
@@ -20,7 +19,6 @@ python main.py --dataset synthetic --seed 0
 ## Automatically Downloaded Data
 
 These loaders download their inputs when the required cache files are absent.
-Internet access and continued availability of the upstream source are required.
 The cache locations below are relative to the BRAVE repository unless noted.
 
 | CLI dataset | Upstream source | Default cache |
@@ -44,10 +42,8 @@ python main.py --dataset bluebirds --seed 0
 python main.py --dataset rte_ct --seed 0
 ```
 
-If an upstream download is unavailable, obtain the same dataset release from its
-maintainers and populate the loader's expected cache. Do not replace the data
-with a different benchmark or derive evaluation gold from worker votes to bypass
-a missing gold file. Download failures are not model-training failures.
+For offline use, place files from the listed dataset release in the loader's
+expected cache.
 
 The Music-Genre loader expects `mturk-datasets.tar.gz` in `data/music_genre/`
 and extracts the four `music_genre_classification/` members:
@@ -71,7 +67,7 @@ The loader also accepts the release's alternate spelling `gold_judjements.txt`.
 The crowd CSV must contain `tid`, `did`, `wid`, and `label`; the gold file has
 four whitespace-separated columns: topic ID, unused field, document ID, and
 gold relevance label. The CLI requires both crowd judgments and official gold.
-It evaluates only items with available gold, using the existing mapping
+It evaluates items with available gold, using the mapping
 `{-2, 0} -> 0`, `1 -> 1`, `2 -> 2`, `{3, 4} -> 3`.
 
 ```bash
@@ -97,15 +93,14 @@ data/crowdtruth_odre/Open-Domain-Relation-Extraction/
 ```
 
 The AMT files must contain `WorkerId`, `Input.sent_id`, and `Answer.Q1`.
-The aggregate file must contain `input.sent_id` and `max_rel`. To preserve the
-existing single-label protocol, the loader uses the first selected relation
-when a worker response contains multiple relations separated by `|`.
+The aggregate file must contain `input.sent_id` and `max_rel`. For a worker
+response containing multiple relations separated by `|`, the loader uses the
+first selected relation.
 
-## Reproduction Notes
+## Run Configuration
 
-The CLI preserves the existing per-dataset preprocessing policies, including
-subsampling and minimum-annotation filters. `--seed` controls the implemented
-sampling and model initialization; it does not fix upstream dataset revisions.
-For a historical result comparison, keep the same raw files and preprocessing
-settings. Some datasets have evaluation labels for only a subset of items.
-`predictions.npz` records the truth and evaluation mask used by each run.
+The CLI applies dataset-specific subsampling and minimum-annotation filters.
+Use `--data-seed` for data sampling, `--seed` for single-run model initialization,
+and `--model-seeds` for validation-selected test runs. Record the dataset release
+and preprocessing settings when comparing runs. `predictions.npz` stores the
+reference labels and evaluation mask used for scoring.

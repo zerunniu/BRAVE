@@ -31,13 +31,11 @@ class BRAVEBlock:
         n_classes: int,
         n_components: int = 3,
         verbose: bool = True,
-        dp_epsilon: Optional[float] = None,
     ):
         self.block_id = block_id
         self.n_classes = n_classes
         self.n_components = n_components
         self.verbose = verbose
-        self.dp_epsilon = dp_epsilon
 
         self.n_instances, self.n_workers = labels.shape
         self.labels = labels.copy()
@@ -58,8 +56,7 @@ class BRAVEBlock:
         if valid_i.size > 0:
             self._labels_onehot[valid_i, valid_j, self.labels[valid_i, valid_j]] = 1.0
 
-        # Local state (kept inside block)
-        self.worker_confusion_matrices: Optional[np.ndarray] = None  # (J,C,C)
+        # Block-local worker mixture weights
         self.worker_component_probs: Optional[np.ndarray] = None  # (J,K)
 
         if self.verbose:
@@ -70,34 +67,8 @@ class BRAVEBlock:
             )
 
     def initialize_local_params(self) -> None:
-        """Initialize local worker confusion matrices and worker-component responsibilities."""
-        C, J, K = self.n_classes, self.n_workers, self.n_components
-        I = self.n_instances
-
-        # Majority vote per instance (within block)
-        initial_labels = np.zeros(I, dtype=int)
-        for i in range(I):
-            valid_labels = self.labels[i][self._valid_mask[i]]
-            if len(valid_labels) > 0:
-                counts = np.bincount(valid_labels, minlength=C)
-                initial_labels[i] = int(np.argmax(counts))
-            else:
-                initial_labels[i] = 0
-
-        # Initialize confusion matrices based on MV labels
-        self.worker_confusion_matrices = np.zeros((J, C, C), dtype=float)
-        for j in range(J):
-            for c in range(C):
-                mask = (initial_labels == c) & self._valid_mask[:, j]
-                if mask.sum() > 0:
-                    worker_labels = self.labels[mask, j]
-                    counts = np.bincount(worker_labels, minlength=C)
-                    self.worker_confusion_matrices[j, c, :] = counts / max(1, counts.sum())
-                else:
-                    self.worker_confusion_matrices[j, c, :] = 1.0 / C
-
-        # Light smoothing
-        self.worker_confusion_matrices = (self.worker_confusion_matrices + 0.01) / (1 + 0.01 * C)
+        """Initialize worker-component responsibilities within the block."""
+        J, K = self.n_workers, self.n_components
 
         # Random init for worker-to-component probabilities (softmax(randn * 0.1))
         random_logits = np.random.randn(J, K) * 0.1
@@ -109,19 +80,9 @@ class BRAVEBlock:
         global_instance_probs: np.ndarray,
         global_component_reliability: np.ndarray,
     ) -> None:
-        """
-        Refine worker profiles using the synchronized global posterior:
-          - update worker confusion matrices (for diagnostics / quality proxy)
-          - update worker-specific mixture weights (kept local)
-        """
+        """Refine local worker mixture weights using the synchronized posterior."""
         eps = 1e-10
         I, J, C, K = self.n_instances, self.n_workers, self.n_classes, self.n_components
-
-        # Update local confusion matrices using current global q(y)
-        expected_counts = np.einsum("ic,ijp->jcp", global_instance_probs, self._labels_onehot)  # (J,C,C')
-        expected_counts = expected_counts + eps
-        row_sums = expected_counts.sum(axis=2, keepdims=True)
-        self.worker_confusion_matrices = expected_counts / row_sums
 
         # Update worker->component responsibilities:
         # log p(z_j=k | ...) ∝ Σ_i valid_ij * Σ_c q(y_i=c) * log R_k[c, l_ij]
@@ -145,7 +106,6 @@ class BRAVEBlock:
         global_class_priors: np.ndarray,
         global_component_weights: np.ndarray,
         global_component_reliability: np.ndarray,
-        include_diagnostics: bool = False,
     ) -> BRAVEUpdate:
         """
         Construct block-local evidence and shared-statistic contributions.
@@ -171,19 +131,12 @@ class BRAVEBlock:
 
         instance_log_probs += np.log(global_class_priors + eps)
 
-        # Optional DP noise (kept identical to existing repo behavior)
-        if self.dp_epsilon is not None:
-            sensitivity = 2 * np.log(1 / eps)
-            noise_scale = sensitivity / self.dp_epsilon
-            noise = np.random.laplace(0, noise_scale, instance_log_probs.shape)
-            instance_log_probs += noise
-
         # Local posterior q(y) derived from instance_log_probs (local softmax)
         max_log = instance_log_probs.max(axis=1, keepdims=True)
         exp_probs = np.exp(instance_log_probs - max_log)
         local_instance_probs = exp_probs / (exp_probs.sum(axis=1, keepdims=True) + eps)  # (I,C)
 
-        # Expected counts for component reliability (do NOT normalize here)
+        # Unnormalized expected counts for component reliability
         reliability_contrib = np.zeros((K, C, C), dtype=float)
         for obs_label in range(C):
             edge_mask = self._edge_labels == obs_label
@@ -195,10 +148,10 @@ class BRAVEBlock:
                 self.worker_component_probs[edge_j].T @ local_instance_probs[edge_i]
             )
 
-        # Component weight contribution: expected counts (do NOT normalize)
+        # Unnormalized component membership counts
         weight_contrib = self.worker_component_probs.sum(axis=0)  # (K,)
 
-        # Preserve the legacy normalized prior contribution while also exposing raw counts.
+        # Block-normalized label frequencies and raw annotation counts.
         local_class_counts = self._labels_onehot.sum(axis=(0, 1))  # (C,)
         local_class_priors = local_class_counts / (local_class_counts.sum() + eps)
 
@@ -210,18 +163,4 @@ class BRAVEBlock:
             n_annotations=self._n_annotations,
             component_reliability_contrib=reliability_contrib,
             component_weight_contrib=weight_contrib,
-            labels=self.labels.copy() if include_diagnostics else None,
-            valid_mask=self._valid_mask.copy() if include_diagnostics else None,
-            labels_onehot=self._labels_onehot.copy() if include_diagnostics else None,
-            worker_component_probs=self.worker_component_probs.copy() if include_diagnostics else None,
-            local_instance_probs=local_instance_probs.copy() if include_diagnostics else None,
         )
-
-    def get_worker_quality(self) -> np.ndarray:
-        """
-        Simple worker-quality proxy from local confusion matrices.
-        """
-        if self.worker_confusion_matrices is None:
-            return np.ones(self.n_workers) * 0.5
-        return np.array([np.diag(self.worker_confusion_matrices[j]).mean() for j in range(self.n_workers)])
-

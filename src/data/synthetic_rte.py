@@ -1,12 +1,8 @@
 """
 Recognizing Textual Entailment (RTE) as a synthetic crowdsourcing dataset.
 
-RTE (e.g., SuperGLUE RTE) provides gold labels but not crowd annotations. Since this repo
-focuses on label aggregation from multiple noisy annotators, we *simulate* crowd labels
-from the gold labels with controllable noise/sparsity.
-
-This provides a clean testbed for DS / GLAD / MACE / EBCCFull / BRAVE under an NLP-flavored
-binary classification task.
+The loader samples synthetic worker annotations from SuperGLUE RTE gold labels
+using configurable noise and sparsity parameters.
 """
 
 from __future__ import annotations
@@ -145,4 +141,3 @@ def quick_load_synthetic_rte(
     loader = SyntheticRTELoader(cache_dir=cache_dir, verbose=verbose)
     loader.load_dataset(split=split)
     return loader.prepare_data(max_instances=max_instances, config=config)
-

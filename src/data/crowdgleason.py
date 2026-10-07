@@ -3,11 +3,11 @@ CrowdGleason dataset loader (crowdsourced Gleason grading).
 
 Source:
   - Zenodo record: 14178894
-  - We only download the small `Annotations.zip` file (labels/metadata).
+  - Annotation archive: `Annotations.zip` (labels and metadata).
 
-This loader exposes the dataset in this repo's standard dense format:
+Output:
   labels: (I, J) with -1 for missing
-  truth:  (I,) gold label (column name varies by split)
+  truth:  (I,) test gold labels or train/val majority-vote reference labels
 
 The downloaded `train.csv` / `val.csv` / `test.csv` in `Annotations.zip` contain:
   - marker1..marker7: crowd labels (7 annotators; -1 for missing)
@@ -15,7 +15,7 @@ The downloaded `train.csv` / `val.csv` / `test.csv` in `Annotations.zip` contain
   - For train/val: also columns MV/DS/GLAD/MACE (precomputed by authors)
   - For test: column `ground truth`
 
-We treat each `marker*` column as a worker.
+Each `marker*` column represents a worker.
 """
 
 from __future__ import annotations
@@ -119,13 +119,11 @@ class CrowdGleasonLoader(BaseDataLoader):
         rng = np.random.default_rng(int(seed))
         df = self._df.copy()
 
-        # Identify ground truth column
+        # Select the split's reference-label column.
         if self.split == "test":
             gt_col = "ground truth"
         else:
-            # Train/val do not include ground truth; treat MV as a proxy if needed.
-            # However, in CrowdGleason these splits provide MV/DS/GLAD/MACE outputs; no explicit gold.
-            # We use MV as the target for consistency unless user provides gold separately.
+            # Train/val use the provided majority-vote (`MV`) reference labels.
             gt_col = "MV" if "MV" in df.columns else None
             if gt_col is None:
                 raise ValueError("No ground-truth column found for split train/val (expected 'MV').")
@@ -150,7 +148,7 @@ class CrowdGleasonLoader(BaseDataLoader):
         # Map any negative gt (if any) to -1 for "unknown"
         truth = np.where(truth >= 0, truth, -1).astype(int)
 
-        # Ensure labels in {-1,0..}
+        # Convert annotation values to integer dtype.
         labels = labels.astype(int)
 
         # Derive n_classes from observed truth/labels if needed
@@ -182,4 +180,3 @@ def quick_load_crowdgleason(
     loader = CrowdGleasonLoader(split=split, cache_dir=cache_dir, verbose=verbose)
     loader.load_dataset()
     return loader.prepare_data(max_instances=max_instances, seed=seed)
-

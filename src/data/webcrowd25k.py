@@ -1,18 +1,17 @@
 """
 WebCrowd25K dataset loader.
 
-We treat each (topic, document) pair as an instance and each MTurk worker (wid)
-as a worker. The 4-point graded relevance label is mapped to classes:
+Each (topic, document) pair is an instance, and each MTurk worker (wid)
+is a worker column. The 4-point graded relevance label is mapped to classes:
 
 0 = Definitely Not Relevant
 1 = Probably Not Relevant
 2 = Probably Relevant
 3 = Definitely Relevant
 
-We ignore rows where label == -1 (no response). Gold labels from
-`gold_judjements.txt` are loaded for reference but not used as truth by
-default, to stay consistent with other crowdsourcing datasets where truth is
-defined by majority vote over the crowd.
+Rows with label == -1 are filtered out. `prepare_data()` returns crowd
+majority-vote reference labels. `build_official_gold()` returns the provided
+gold judgments aligned to the annotation rows; the CLI uses these for scoring.
 """
 
 from __future__ import annotations
@@ -36,7 +35,7 @@ class WebCrowd25KLoader(BaseDataLoader):
     def load_dataset(self) -> None:
         """Load crowd and gold judgments into memory."""
         crowd_path = self.data_dir / "crowd_judgements.csv"
-        # Dataset releases use inconsistent spellings across mirrors/README.
+        # Accept both `gold_judgements.txt` and `gold_judjements.txt` filenames.
         gold_path = self.data_dir / "gold_judgements.txt"
         if not gold_path.exists():
             gold_path = self.data_dir / "gold_judjements.txt"
@@ -200,4 +199,3 @@ def quick_load_webcrowd25k() -> Tuple[np.ndarray, np.ndarray, int, Dict]:
     loader = WebCrowd25KLoader()
     loader.load_dataset()
     return loader.prepare_data()
-

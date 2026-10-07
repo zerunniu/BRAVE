@@ -4,8 +4,8 @@ CrowdTruth: Medical Relation Extraction (MRE) loader.
 Source:
   - https://github.com/CrowdTruth/Medical-Relation-Extraction
 
-We load the *raw* crowdsourcing outputs for the RelEx task (CrowdFlower exports),
-and build a binary classification task for a chosen target relation:
+The loader reads RelEx crowd annotations from CrowdFlower exports and builds
+a binary classification task for a chosen target relation:
   - target_relation = "TREATS"  (treat)
   - target_relation = "CAUSES"  (cause)
 
@@ -13,7 +13,10 @@ Each row in the raw RelEx CSV is a worker annotation:
   - task id: `_unit_id`
   - worker id: `_worker_id`
   - worker choice: `step_1_select_the_valid_relations` (string like "[TREATS]" or "[NONE]")
-  - expert decision: `expdec` (values 1 / -1) used as gold truth for whether the seed relation holds
+
+Gold labels come from the processed relation-specific ground-truth CSVs.
+The loader joins their `expert` judgments to annotations by sentence and terms,
+mapping 1 to the positive class and -1 to the negative class.
 
 Output:
   labels: (I,J) with -1 missing, labels in {0,1}
@@ -100,7 +103,7 @@ class CrowdTruthMRELoader(BaseDataLoader):
             required = {"_unit_id", "_worker_id", "step_1_select_the_valid_relations", "sentence", "term1", "term2"}
             missing = required - set(df.columns)
             if missing:
-                # Unexpected export; skip this batch.
+                # Skip batches missing required annotation columns.
                 if self.verbose:
                     print(f"Warning: skipping {name} (missing cols: {sorted(missing)})")
                 continue
@@ -232,4 +235,3 @@ def quick_load_crowdtruth_mre(
     loader = CrowdTruthMRELoader(target=target, cache_dir=cache_dir, verbose=verbose)
     loader.load_dataset()
     return loader.prepare_data(**prepare_kwargs)
-

@@ -4,14 +4,14 @@ CIFAR-10H loader (crowdsourced human labels for CIFAR-10 test set).
 Source:
   - https://github.com/jcpeterson/cifar-10h
 
-We download and parse the raw annotator-level data (`cifar10h-raw.zip`),
-then expose the dataset in this repo's dense format:
+The loader downloads and parses annotator-level data (`cifar10h-raw.zip`)
+into a dense annotation matrix:
   labels: (I, J) with -1 for missing, labels in {0..9}
   truth:  (I,) CIFAR-10 test-set ground truth label in {0..9}
 
 Notes:
   - Each annotator labels a subset of images, so the matrix is sparse.
-  - We drop attention-check trials.
+  - Attention-check trials are filtered out.
 """
 
 from __future__ import annotations
@@ -88,7 +88,7 @@ class CIFAR10HLoader(BaseDataLoader):
         with zf.open(member) as f:
             df = pd.read_csv(f)
 
-        # Note: the released file uses `cifar10_test_test_idx` (typo) for the CIFAR-10 test index.
+        # The released file names the CIFAR-10 test index `cifar10_test_test_idx`.
         idx_col = "cifar10_test_set_idx" if "cifar10_test_set_idx" in df.columns else "cifar10_test_test_idx"
 
         required = {"annotator_id", "is_attn_check", "chosen_label", "true_label", idx_col}
@@ -203,4 +203,3 @@ def quick_load_cifar10h(
     loader = CIFAR10HLoader(cache_dir=cache_dir, verbose=verbose)
     loader.load_dataset()
     return loader.prepare_data(**prepare_kwargs)
-

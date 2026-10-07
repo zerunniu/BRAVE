@@ -1,4 +1,4 @@
-"""BRAVE submission package."""
+"""BRAVE label aggregation package."""
 
 from .brave import BRAVE, BRAVEBlock, BRAVEGlobalUpdater, BRAVEUpdate, partition_annotations
 
